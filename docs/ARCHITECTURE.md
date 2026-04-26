@@ -16,7 +16,7 @@ Claudex is a thin orchestrator built on top of Stop hooks. The hook is the brain
 ## The lifecycle (plan mode)
 
 ```
-USER: /claudex plan add expiry dates
+USER: /claudex:plan add expiry dates
               │
               ▼
   ┌─────────────────────┐

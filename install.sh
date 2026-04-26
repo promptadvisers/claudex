@@ -153,7 +153,7 @@ if [ "$failures" -eq 0 ]; then
   echo "Next: open a Claude Code session in any git project, install the plugin"
   echo "(see step 6 above), and try:"
   echo ""
-  echo "  /claudex plan add a feature flag system to my app"
+  echo "  /claudex:plan add a feature flag system to my app"
   echo ""
   exit 0
 else

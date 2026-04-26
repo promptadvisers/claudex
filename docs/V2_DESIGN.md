@@ -7,7 +7,7 @@ The reason auto-apply was deferred: a Codex adversarial review of the v1 plan fl
 ## v2 lifecycle
 
 ```
-USER: /claudex review --apply
+USER: /claudex:review --apply
               │
               ▼
   start-loop.sh checks for dirty worktree
@@ -69,7 +69,7 @@ snapshot_dir: .claude/claudex/20260426-094523-a3f7c2-snapshots
 
 ## New commands in v2
 
-- `/claudex review --apply <feature description>` — opt-in auto-apply mode (default review mode stays read-only)
+- `/claudex:review --apply <feature description>` — opt-in auto-apply mode (default review mode stays read-only)
 - `/claudex:apply <review_id>` — merge the isolated branch into the user's current branch
 - `/claudex:rollback <review_id>` — delete the isolated branch and restore pre-loop state
 

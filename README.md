@@ -5,7 +5,7 @@
 > All in one Claude Code session, hands off the keyboard.
 
 ```
-$ /claudex plan add expiry dates to my links
+$ /claudex:plan add expiry dates to my links
 
   Round 1 — drafting plan...
   Round 2 — adversarial review starting...
@@ -31,8 +31,8 @@ Two slash commands wired through a Claude Code Stop hook. The Stop hook is the o
 
 | Command | Mode | Behavior |
 |---|---|---|
-| `/claudex plan [flags] <feature>` | Plan mode | Claude drafts `PLAN.md`. Codex pressure-tests it. Claude revises. Repeat until LGTM or N rounds. |
-| `/claudex review` | Review mode | Codex reviews the diff. Findings + proposed fixes written to `reviews/`. **Read-only in v1.** |
+| `/claudex:plan [flags] <feature>` | Plan mode | Claude drafts `PLAN.md`. Codex pressure-tests it. Claude revises. Repeat until LGTM or N rounds. |
+| `/claudex:review` | Review mode | Codex reviews the diff. Findings + proposed fixes written to `reviews/`. **Read-only in v1.** |
 | `/claudex:cancel` | — | Graceful cancel of the active loop. |
 | `/claudex:rollback` | — | Nuclear cleanup of all state files. |
 
@@ -45,10 +45,10 @@ Two slash commands wired through a Claude Code Stop hook. The Stop hook is the o
 
 Examples:
 ```
-/claudex plan add expiry dates                        # default 5 rounds, fresh draft
-/claudex plan --rounds 3 add expiry dates             # 3 rounds max, fresh draft
-/claudex plan --from-draft add expiry dates           # use existing PLAN.md
-/claudex plan --rounds 3 --from-draft add expiry      # combined
+/claudex:plan add expiry dates                        # default 5 rounds, fresh draft
+/claudex:plan --rounds 3 add expiry dates             # 3 rounds max, fresh draft
+/claudex:plan --from-draft add expiry dates           # use existing PLAN.md
+/claudex:plan --rounds 3 --from-draft add expiry      # combined
 ```
 
 ## Why this is different from solo Claude or solo Codex
@@ -125,7 +125,7 @@ Both should pass. If either fails, see the Troubleshooting section below.
 In a Claude Code session inside any git project:
 
 ```
-/claudex plan add a feature flag system to this app
+/claudex:plan add a feature flag system to this app
 ```
 
 Claude drafts `PLAN.md`. The Stop hook fires when Claude tries to finish the turn. The hook writes a runner script that calls Codex with an adversarial review prompt. Claude executes the script, reads Codex's findings, and either revises `PLAN.md` (if there are material findings) or marks the loop done.
@@ -135,7 +135,7 @@ You watch all of it happen in one Claude Code window.
 ## How it works (the 60-second version)
 
 ```
-USER /claudex plan <topic>
+USER /claudex:plan <topic>
    ↓
 Slash command writes state file, tells Claude to draft PLAN.md
    ↓

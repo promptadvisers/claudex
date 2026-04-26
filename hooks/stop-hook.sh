@@ -273,7 +273,7 @@ fi
 if [ "$MODE" = "review" ]; then
   case "$PHASE" in
     reviewing)
-      # First fire after /claudex review. Run codex review on diff.
+      # First fire after /claudex:review. Run codex review on diff.
       mkdir -p reviews 2>/dev/null
 
       FOCUS="You are doing a code review of the current git diff (uncommitted changes plus the diff against the base branch if one is configured).
