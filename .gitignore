@@ -1,7 +1,9 @@
-# Plugin runtime artifacts (per-loop, never committed)
-.claude/claudex/
-PLAN.md
-reviews/
+# Plugin runtime artifacts (per-loop, never committed).
+# These paths anchor to the repo root so they don't accidentally hide
+# similarly-named files inside the plugin code (like commands/plan.md).
+/.claude/claudex/
+/PLAN.md
+/reviews/
 
 # Editor/OS noise
 .DS_Store
