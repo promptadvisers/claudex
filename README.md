@@ -55,40 +55,70 @@ Examples:
 
 Most "AI loop" plugins for Claude Code only do code review. Plan mode is the bigger unlock — having Codex pressure-test a *design* before you write a line of code is the move that compounds the most over time. Two rounds and your plan is bulletproof. You haven't written any code. That's the magic.
 
-## Install (folder-drop, no marketplace publish needed)
+## Prerequisites
 
-1. Clone or copy this folder into your project's `.claude/plugins/` directory:
+Before installing claudex, you need:
 
-   ```bash
-   git clone git@github.com:promptadvisers/claudex.git .claude/plugins/claudex
-   ```
+| Requirement | Why | How to get it |
+|---|---|---|
+| **Claude Code** | Where claudex runs | https://docs.claude.com/en/docs/claude-code |
+| **Node.js 18.18+** | Codex CLI is a Node app | https://nodejs.org/ or use `nvm` |
+| **Codex CLI** | claudex calls `codex exec` directly | `npm install -g @openai/codex` |
+| **ChatGPT Plus or higher** | Codex authenticates against your ChatGPT account | https://chatgpt.com/ |
+| **Bash** | Hooks and scripts are bash | Built into macOS and Linux. Windows needs WSL. |
+| **`codex login`** | Authenticates the Codex CLI | Run `codex login` after install (opens a browser) |
 
-2. Reload plugins in Claude Code:
+### Recommended companion (not required)
 
-   ```
-   /reload-plugins
-   ```
+[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — the official Codex plugin for Claude Code. Adds `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`, and `/codex:setup` slash commands. Most people who watched the Dynamic Duo video have this installed already.
 
-3. Verify the platform behaviors work on your machine:
+To install it:
 
-   ```bash
-   bash .claude/plugins/claudex/tests/platform-validation.sh
-   ```
+```
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/reload-plugins
+/codex:setup
+```
 
-   You should see "All platform checks passed."
+claudex works without it (we invoke `codex` CLI directly), but pairing them is the full experience.
 
-4. Run the smoke test (simulates a full loop without invoking Codex):
+## Install
 
-   ```bash
-   bash .claude/plugins/claudex/tests/smoke-test.sh
-   ```
+### Quick path (one command checks everything)
 
-5. You also need the Codex CLI installed:
+```bash
+git clone git@github.com:promptadvisers/claudex.git ~/claudex
+cd ~/claudex
+bash install.sh
+```
 
-   ```bash
-   npm install -g @openai/codex
-   codex login
-   ```
+`install.sh` walks through every prerequisite, installs the Codex CLI if it's missing, points you at `codex login` if needed, and runs the platform validation tests at the end. Re-runnable any time you want to recheck the setup.
+
+After it reports green, drop the plugin into your project:
+
+```bash
+# inside your project root, in a Claude Code session:
+cp -r ~/claudex .claude/plugins/claudex
+/reload-plugins
+```
+
+Or symlink it instead so updates stay in sync:
+
+```bash
+mkdir -p .claude/plugins
+ln -s ~/claudex .claude/plugins/claudex
+/reload-plugins
+```
+
+### Verify
+
+```bash
+bash .claude/plugins/claudex/tests/platform-validation.sh
+bash .claude/plugins/claudex/tests/smoke-test.sh
+```
+
+Both should pass. If either fails, see the Troubleshooting section below.
 
 ## Try it
 
@@ -212,6 +242,26 @@ v1 ships with these phases complete:
 - [x] Phase 6 — Distribution + docs
 
 v2 lands later. Highlights: auto-apply for review mode with branch isolation, multi-agent Codex, interactive apply.
+
+## Troubleshooting
+
+**`/claudex` doesn't show up in my slash command list.**
+You either skipped `/reload-plugins` after dropping the plugin in, or the plugin folder isn't where Claude Code expects it. Confirm `.claude/plugins/claudex/.claude-plugin/plugin.json` exists. Then run `/reload-plugins`.
+
+**`codex exec` errors out with "auth required" or similar.**
+Run `codex login` in a regular terminal. It opens a browser. Sign in with your ChatGPT account (Plus or higher).
+
+**`platform-validation.sh` fails on a state-helpers check.**
+Make sure you're running with `bash`, not `sh` or `zsh`. The scripts use bash-specific syntax. Try `bash tests/platform-validation.sh` explicitly.
+
+**The hook fires but Claude doesn't continue the loop.**
+Check `.claude/claudex/log` for ERR-trap entries. Most likely cause: the runner script printed an error from the Codex CLI. Run `bash .claude/claudex/<id>-runner.sh` manually to see what Codex said.
+
+**A loop is stuck and `/claudex:cancel` didn't help.**
+Use `/claudex:rollback` to nuke all state files. Then start a fresh loop.
+
+**I want to debug what the hook is doing.**
+Set `CLAUDEX_VERBOSE=1` in your environment before invoking `/claudex`. Logs will be more detailed in `.claude/claudex/log`.
 
 ## Author
 
