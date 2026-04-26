@@ -14,26 +14,34 @@ You are running the claudex plan-mode autonomous loop. The user wants you to dra
 
 Parse these flags from the start of $ARGUMENTS:
 
-- `--rounds N` — override the default max rounds (5). Useful for tighter or looser loops.
+- `--rounds N` — override the default max rounds (3). Useful for tighter or looser loops. Common picks: 3 (default, fast), 5 (deeper grilling), 7+ (very high stakes).
 - `--from-draft` — use the existing `PLAN.md` in the project root instead of drafting from scratch. PLAN.md must exist and be non-empty.
 
 Pass flags through to start-loop.sh as-is. The script handles parsing.
 
 ## Procedure
 
-1. Run start-loop.sh with the full $ARGUMENTS:
+1. **If $ARGUMENTS is empty** (no topic, no flags), do NOT run start-loop.sh. Instead, ask the user a single question:
+
+   > What feature or change should I plan? (e.g. "add expiry dates to my links", "migrate auth to Clerk")
+   >
+   > Optional: prefix with `--rounds N` to override the default of 3 grilling rounds, or `--from-draft` to use an existing PLAN.md.
+
+   Wait for their reply, then re-invoke `/claudex:plan <their answer>`. Do not proceed past this step until you have a topic.
+
+2. Run start-loop.sh with the full $ARGUMENTS:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan $ARGUMENTS
 ```
 
-2. The script sets up state and prints initial instructions for you. Read them carefully.
+3. The script sets up state and prints initial instructions for you. Read them carefully.
 
-3. Follow the instructions:
+4. Follow the instructions:
    - Without `--from-draft`: draft `PLAN.md` in the project root with a detailed numbered plan covering edge cases, time zones, concurrent use, data integrity, unhappy paths.
    - With `--from-draft`: read the existing PLAN.md so you have context for upcoming review rounds. Do not modify it yet.
 
-4. End your turn. The Stop hook fires automatically and starts the adversarial review loop.
+5. End your turn. The Stop hook fires automatically and starts the adversarial review loop.
 
 ## Examples
 

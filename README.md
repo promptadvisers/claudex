@@ -40,15 +40,15 @@ Two slash commands wired through a Claude Code Stop hook. The Stop hook is the o
 
 | Flag | Effect |
 |---|---|
-| `--rounds N` | Override the default max rounds (5). Useful for tighter or looser loops. |
+| `--rounds N` | Override the default max rounds (3). Common picks: 3 (default, fast), 5 (deeper grilling), 7+ (very high stakes). |
 | `--from-draft` | Use the existing `PLAN.md` in the project root instead of drafting from scratch. PLAN.md must exist and be non-empty. |
 
 Examples:
 ```
-/claudex:plan add expiry dates                        # default 5 rounds, fresh draft
-/claudex:plan --rounds 3 add expiry dates             # 3 rounds max, fresh draft
+/claudex:plan add expiry dates                        # default 3 rounds, fresh draft
+/claudex:plan --rounds 5 add expiry dates             # 5 rounds (deeper grilling)
 /claudex:plan --from-draft add expiry dates           # use existing PLAN.md
-/claudex:plan --rounds 3 --from-draft add expiry      # combined
+/claudex:plan --rounds 5 --from-draft add expiry      # combined
 ```
 
 ## Why this is different from solo Claude or solo Codex

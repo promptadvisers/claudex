@@ -102,13 +102,20 @@ case "$MAX_ROUNDS" in
 esac
 
 RUNNER="$STATE_DIR/$REVIEW_ID-runner.sh"
+REVIEW_DIR="$STATE_DIR/$REVIEW_ID"
+mkdir -p "$REVIEW_DIR" 2>/dev/null
 
+# write_runner_script <mode> <focus> <round>
+# The third arg is the round number to print in headers and use in the
+# findings file path. Pass it explicitly so the caller controls parity
+# between the hook BLOCK message and the runner output.
 write_runner_script() {
   local mode="$1"
   local focus="$2"
+  local round_num="$3"
   cat > "$RUNNER" <<RUNNEREOF
 #!/usr/bin/env bash
-# Claudex runner script for $REVIEW_ID, mode=$mode, round=$ROUND
+# Claudex runner script for $REVIEW_ID, mode=$mode, round=$round_num
 # Runs Codex against the current state. Output streams to user's terminal.
 
 set +e
@@ -124,7 +131,7 @@ cat > "\$PROMPT_FILE" <<'PROMPTEOF'
 $focus
 PROMPTEOF
 
-echo "[claudex] Running Codex (mode=$mode, round=$ROUND)..."
+echo "[claudex] Running Codex (mode=$mode, round=$round_num)..."
 codex exec --dangerously-bypass-approvals-and-sandbox < "\$PROMPT_FILE"
 RC=\$?
 echo "[claudex] Codex exit code: \$RC"
@@ -155,9 +162,13 @@ Use a numbered list covering edge cases, time zones, concurrent use, data integr
         approve "CAS failed"
       fi
 
+      FINDINGS_FILE="$REVIEW_DIR/findings-round-$ROUND.md"
+
       FOCUS="You are doing an adversarial review of a plan document at PLAN.md in the current working directory.
 
 Topic: $TOPIC
+
+Round: $ROUND of $MAX_ROUNDS
 
 Pressure-test this plan. Find real failure modes, design flaws, and edge cases that would break under stress. Be specific.
 
@@ -168,16 +179,45 @@ For each material finding:
 
 If you find no material concerns (only style nits), say exactly: 'No substantive findings.'
 
-Read PLAN.md now and review."
+Read PLAN.md, then review.
 
-      write_runner_script "plan" "$FOCUS"
+CRITICAL OUTPUT REQUIREMENT: After your full analysis, write a clean summary of just the findings (severity + one-line description + recommendation) to the file:
 
-      MSG="Round $ROUND - adversarial review starting.
+  $FINDINGS_FILE
+
+Use this exact format:
+
+# Round $ROUND findings
+
+## High
+- <one-line description> (<recommendation>)
+- ...
+
+## Medium
+- ...
+
+## Low
+- ...
+
+If no material findings, the file should contain exactly:
+
+# Round $ROUND findings
+
+No substantive findings.
+
+Write that file before exiting. The next reviewer reads only that file, not your full transcript."
+
+      write_runner_script "plan" "$FOCUS" "$ROUND"
+
+      MSG="Round $ROUND of $MAX_ROUNDS - adversarial review starting.
 
 Run the runner script:
   bash $RUNNER
 
-Wait for Codex to finish. Read the findings.
+When Codex finishes, read the clean findings summary from:
+  $FINDINGS_FILE
+
+(That file has just the bullet list. Skip the full transcript unless you need extra context.)
 
 Then decide:
 
@@ -224,10 +264,25 @@ Hard stop: if this is round $MAX_ROUNDS and Codex still has substantive findings
         approve "max rounds reached"
       fi
 
-      # Run another round.
+      # Run another round. Promote local ROUND to NEW_ROUND so the runner
+      # script header, the findings filename, and the BLOCK message all
+      # agree on the round number.
+      ROUND="$NEW_ROUND"
+      FINDINGS_FILE="$REVIEW_DIR/findings-round-$ROUND.md"
+      PREV_FINDINGS_FILE="$REVIEW_DIR/findings-round-$((ROUND - 1)).md"
+
+      PREV_REF=""
+      if [ -f "$PREV_FINDINGS_FILE" ]; then
+        PREV_REF="
+
+The previous round's findings are at $PREV_FINDINGS_FILE. PLAN.md should already address them; flag any that were dismissed without good reason. Focus your fresh attention on what is still wrong, what got introduced by the revisions, and what still has not been considered."
+      fi
+
       FOCUS="You are doing an adversarial review of a plan document at PLAN.md in the current working directory.
 
 Topic: $TOPIC
+
+Round: $ROUND of $MAX_ROUNDS$PREV_REF
 
 Pressure-test this plan. Find real failure modes, design flaws, and edge cases that would break under stress. Be specific.
 
@@ -238,16 +293,43 @@ For each material finding:
 
 If you find no material concerns (only style nits), say exactly: 'No substantive findings.'
 
-Read PLAN.md now and review."
+Read PLAN.md, then review.
 
-      write_runner_script "plan" "$FOCUS"
+CRITICAL OUTPUT REQUIREMENT: After your full analysis, write a clean summary of just the findings (severity + one-line description + recommendation) to the file:
 
-      MSG="Round $NEW_ROUND - adversarial review starting.
+  $FINDINGS_FILE
+
+Use this exact format:
+
+# Round $ROUND findings
+
+## High
+- <one-line description> (<recommendation>)
+- ...
+
+## Medium
+- ...
+
+## Low
+- ...
+
+If no material findings, the file should contain exactly:
+
+# Round $ROUND findings
+
+No substantive findings.
+
+Write that file before exiting."
+
+      write_runner_script "plan" "$FOCUS" "$ROUND"
+
+      MSG="Round $ROUND of $MAX_ROUNDS - adversarial review starting.
 
 Run the runner script:
   bash $RUNNER
 
-Wait for Codex to finish. Read the findings.
+When Codex finishes, read the clean findings summary from:
+  $FINDINGS_FILE
 
 If material findings exist, revise PLAN.md and end your turn (round will increment).
 If no material findings, run: bash $CLAUDE_PLUGIN_ROOT/scripts/mark-done.sh $REVIEW_ID
@@ -295,7 +377,7 @@ Skip style nits. Material findings only.
 
 Output as a markdown document. Save the findings to reviews/review-$REVIEW_ID.md and proposed fixes (unified diff format) to reviews/proposed-fixes-$REVIEW_ID.md."
 
-      write_runner_script "review" "$FOCUS"
+      write_runner_script "review" "$FOCUS" "1"
 
       claudex_phase_transition "$ACTIVE_STATE" "reviewing" "done"
 

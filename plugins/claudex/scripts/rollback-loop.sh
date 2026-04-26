@@ -20,6 +20,16 @@ for f in "$CLAUDEX_STATE_DIR"/*.state "$CLAUDEX_STATE_DIR"/*.lock "$CLAUDEX_STAT
   fi
 done
 
+# Per-review findings directories: $CLAUDEX_STATE_DIR/<review_id>/findings-round-N.md
+for d in "$CLAUDEX_STATE_DIR"/*/; do
+  [ -d "$d" ] || continue
+  base=$(basename "$d")
+  if echo "$base" | grep -qE '^[0-9]{8}-[0-9]{6}-[0-9a-f]{6}$'; then
+    rm -rf "$d"
+    count=$((count+1))
+  fi
+done
+
 echo "Rolled back. Removed $count file(s) from $CLAUDEX_STATE_DIR."
 echo "(Log file preserved.)"
 exit 0

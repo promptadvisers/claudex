@@ -110,12 +110,14 @@ claudex_lock_is_active() {
 
 claudex_sweep_stale() {
   [ -d "$CLAUDEX_STATE_DIR" ] || return 0
-  # Find state files older than threshold; remove their state, lock, runner.
+  # Find state files older than threshold; remove their state, lock, runner,
+  # prompt, and per-review findings dir.
   find "$CLAUDEX_STATE_DIR" -maxdepth 1 -type f -name "*.state" -mmin "+$CLAUDEX_STALE_MINUTES" 2>/dev/null \
   | while read -r f; do
     local id
     id=$(basename "$f" .state)
-    rm -f "$f" "$CLAUDEX_STATE_DIR/${id}.lock" "$CLAUDEX_STATE_DIR/${id}-runner.sh" 2>/dev/null
+    rm -f "$f" "$CLAUDEX_STATE_DIR/${id}.lock" "$CLAUDEX_STATE_DIR/${id}-runner.sh" "$CLAUDEX_STATE_DIR/${id}-prompt.txt" 2>/dev/null
+    rm -rf "$CLAUDEX_STATE_DIR/${id}" 2>/dev/null
   done
   return 0
 }
