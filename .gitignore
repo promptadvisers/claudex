@@ -1,0 +1,15 @@
+# Plugin runtime artifacts (per-loop, never committed)
+.claude/claudex/
+PLAN.md
+reviews/
+
+# Editor/OS noise
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Test scratch
+/tmp/
