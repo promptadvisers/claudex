@@ -31,10 +31,25 @@ Two slash commands wired through a Claude Code Stop hook. The Stop hook is the o
 
 | Command | Mode | Behavior |
 |---|---|---|
-| `/claudex plan <feature>` | Plan mode | Claude drafts `PLAN.md`. Codex pressure-tests it. Claude revises. Repeat until LGTM or 5 rounds. |
+| `/claudex plan [flags] <feature>` | Plan mode | Claude drafts `PLAN.md`. Codex pressure-tests it. Claude revises. Repeat until LGTM or N rounds. |
 | `/claudex review` | Review mode | Codex reviews the diff. Findings + proposed fixes written to `reviews/`. **Read-only in v1.** |
 | `/claudex:cancel` | — | Graceful cancel of the active loop. |
 | `/claudex:rollback` | — | Nuclear cleanup of all state files. |
+
+### Plan-mode flags
+
+| Flag | Effect |
+|---|---|
+| `--rounds N` | Override the default max rounds (5). Useful for tighter or looser loops. |
+| `--from-draft` | Use the existing `PLAN.md` in the project root instead of drafting from scratch. PLAN.md must exist and be non-empty. |
+
+Examples:
+```
+/claudex plan add expiry dates                        # default 5 rounds, fresh draft
+/claudex plan --rounds 3 add expiry dates             # 3 rounds max, fresh draft
+/claudex plan --from-draft add expiry dates           # use existing PLAN.md
+/claudex plan --rounds 3 --from-draft add expiry      # combined
+```
 
 ## Why this is different from solo Claude or solo Codex
 

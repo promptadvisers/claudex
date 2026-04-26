@@ -181,6 +181,76 @@ output=$(bash "$START" plan "fresh loop past terminal" 2>&1)
 check "fresh loop accepted past done state" bash -c "echo '$output' | grep -qi 'plan mode initialized'"
 check "old state file preserved for audit" test -f .claude/claudex/20200101-000000-aaaaaa.state
 
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "15. --rounds N flag overrides default"
+output=$(bash "$START" plan --rounds 3 "tight loop" 2>&1)
+check "--rounds accepted" bash -c "echo '$output' | grep -qi 'plan mode initialized'"
+NEW_ID=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+NEW_STATE=".claude/claudex/$NEW_ID.state"
+state_max=$(grep '^max_rounds:' "$NEW_STATE" | sed 's/^max_rounds: //')
+check "max_rounds set to 3 in state" test "$state_max" = "3"
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "16. --rounds with =N syntax also works"
+output=$(bash "$START" plan --rounds=2 "even tighter loop" 2>&1)
+NEW_ID=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+NEW_STATE=".claude/claudex/$NEW_ID.state"
+state_max=$(grep '^max_rounds:' "$NEW_STATE" | sed 's/^max_rounds: //')
+check "max_rounds=2 set via equals syntax" test "$state_max" = "2"
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "17. --rounds rejects non-positive values"
+output=$(bash "$START" plan --rounds 0 "invalid" 2>&1)
+check "--rounds 0 rejected" bash -c "echo '$output' | grep -qi 'positive integer'"
+output=$(bash "$START" plan --rounds abc "invalid" 2>&1)
+check "--rounds abc rejected" bash -c "echo '$output' | grep -qi 'positive integer'"
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "18. --from-draft requires existing PLAN.md"
+rm -f PLAN.md
+output=$(bash "$START" plan --from-draft "draft topic" 2>&1)
+check "--from-draft errors when PLAN.md missing" bash -c "echo '$output' | grep -qi 'PLAN.md to exist'"
+check "no state file created on --from-draft error" bash -c "[ -z \"$(ls .claude/claudex/*.state 2>/dev/null)\" ]"
+
+section "19. --from-draft works when PLAN.md exists"
+echo "# existing plan
+1. step one
+2. step two" > PLAN.md
+output=$(bash "$START" plan --from-draft "topic for from-draft" 2>&1)
+check "--from-draft accepted" bash -c "echo '$output' | grep -qi 'plan mode initialized'"
+check "output mentions from-draft source" bash -c "echo '$output' | grep -qi 'existing PLAN.md'"
+NEW_ID=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+NEW_STATE=".claude/claudex/$NEW_ID.state"
+fd_field=$(grep '^from_draft:' "$NEW_STATE" | sed 's/^from_draft: //')
+check "from_draft=true in state" test "$fd_field" = "true"
+
+bash "$ROLLBACK" >/dev/null 2>&1
+rm -f PLAN.md
+
+section "20. --from-draft rejected on review mode"
+echo "# plan" > PLAN.md
+output=$(bash "$START" review --from-draft 2>&1)
+check "--from-draft on review mode rejected" bash -c "echo '$output' | grep -qi 'only applies to plan mode'"
+rm -f PLAN.md
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "21. Combined --rounds and --from-draft"
+echo "# plan" > PLAN.md
+output=$(bash "$START" plan --rounds 4 --from-draft "combined flags" 2>&1)
+check "combined flags accepted" bash -c "echo '$output' | grep -qi 'plan mode initialized'"
+NEW_ID=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+NEW_STATE=".claude/claudex/$NEW_ID.state"
+state_max=$(grep '^max_rounds:' "$NEW_STATE" | sed 's/^max_rounds: //')
+fd_field=$(grep '^from_draft:' "$NEW_STATE" | sed 's/^from_draft: //')
+check "max_rounds=4 set" test "$state_max" = "4"
+check "from_draft=true set" test "$fd_field" = "true"
+rm -f PLAN.md
+
 # Cleanup
 cd - >/dev/null
 rm -rf "$TMP"

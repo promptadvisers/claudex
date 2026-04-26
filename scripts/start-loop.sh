@@ -23,11 +23,59 @@ source "$CLAUDE_PLUGIN_ROOT/scripts/state-helpers.sh"
 
 MODE="$1"
 shift || true
+
+# Parse optional flags before the topic. Recognized flags:
+#   --rounds N         override default max rounds (positive integer)
+#   --from-draft       use existing PLAN.md instead of drafting from scratch (plan mode only)
+FROM_DRAFT=false
+CUSTOM_ROUNDS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --rounds)
+      shift
+      CUSTOM_ROUNDS="$1"
+      shift || true
+      ;;
+    --rounds=*)
+      CUSTOM_ROUNDS="${1#--rounds=}"
+      shift
+      ;;
+    --from-draft)
+      FROM_DRAFT=true
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 TOPIC="$*"
 
 if [ -z "$MODE" ]; then
-  echo "Usage: start-loop.sh plan <topic> | start-loop.sh review" >&2
+  echo "Usage: start-loop.sh plan [--rounds N] [--from-draft] <topic> | start-loop.sh review [--rounds N]" >&2
   exit 2
+fi
+
+# Validate --rounds.
+if [ -n "$CUSTOM_ROUNDS" ]; then
+  if ! echo "$CUSTOM_ROUNDS" | grep -qE '^[1-9][0-9]*$'; then
+    echo "--rounds must be a positive integer (got: $CUSTOM_ROUNDS)" >&2
+    exit 2
+  fi
+fi
+
+# Validate --from-draft (plan mode only, requires PLAN.md to exist).
+if [ "$FROM_DRAFT" = "true" ]; then
+  if [ "$MODE" != "plan" ]; then
+    echo "--from-draft only applies to plan mode, not $MODE" >&2
+    exit 2
+  fi
+  if [ ! -f "PLAN.md" ] || [ ! -s "PLAN.md" ]; then
+    echo "--from-draft requires PLAN.md to exist in the project root and be non-empty." >&2
+    echo "Either remove --from-draft (let Claude draft from scratch) or create PLAN.md first." >&2
+    exit 2
+  fi
 fi
 
 case "$MODE" in
@@ -94,6 +142,11 @@ else
   PHASE="reviewing"
 fi
 
+# --rounds flag overrides default max.
+if [ -n "$CUSTOM_ROUNDS" ]; then
+  MAX_ROUNDS="$CUSTOM_ROUNDS"
+fi
+
 # Escape topic for YAML (basic; topic is user-provided).
 ESCAPED_TOPIC="$(printf '%s' "$TOPIC" | sed 's/"/\\"/g')"
 
@@ -102,6 +155,7 @@ phase: $PHASE
 topic: \"$ESCAPED_TOPIC\"
 round: 1
 max_rounds: $MAX_ROUNDS
+from_draft: $FROM_DRAFT
 review_id: $REVIEW_ID
 repo_root: $REPO_ROOT
 session_id: $SESSION_ID
@@ -119,11 +173,18 @@ case "$MODE" in
     echo "Review ID: $REVIEW_ID"
     echo "Topic: $TOPIC"
     echo "Max rounds: $MAX_ROUNDS"
-    echo ""
-    echo "Round 1 - drafting plan."
-    echo ""
-    cat "$CLAUDE_PLUGIN_ROOT/scripts/prompts/plan-mode-init.md" 2>/dev/null \
-      | sed -e "s|{{TOPIC}}|$TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g"
+    if [ "$FROM_DRAFT" = "true" ]; then
+      echo "Source: existing PLAN.md (--from-draft)"
+      echo ""
+      cat "$CLAUDE_PLUGIN_ROOT/scripts/prompts/plan-mode-from-draft.md" 2>/dev/null \
+        | sed -e "s|{{TOPIC}}|$TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g" -e "s|{{MAX_ROUNDS}}|$MAX_ROUNDS|g"
+    else
+      echo ""
+      echo "Round 1 - drafting plan."
+      echo ""
+      cat "$CLAUDE_PLUGIN_ROOT/scripts/prompts/plan-mode-init.md" 2>/dev/null \
+        | sed -e "s|{{TOPIC}}|$TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g"
+    fi
     ;;
   review)
     echo "Claudex review mode initialized."
