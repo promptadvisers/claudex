@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://www.skool.com/earlyaidopters/about">
-    <img src="docs/images/btn_early_ai_dopters.jpg" alt="Get the maintained version on Early AI-dopters" width="360"/>
+    <img src="docs/images/btn_early_ai_dopters.png" alt="Get the maintained version on Early AI-dopters" width="360"/>
   </a>
 </p>
 
