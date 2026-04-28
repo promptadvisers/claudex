@@ -91,25 +91,38 @@ check "$CLAUDEX_STATE_DIR exists" test -d "$CLAUDEX_STATE_DIR"
 check "$CLAUDEX_STATE_DIR writable" test -w "$CLAUDEX_STATE_DIR"
 
 section "Plugin files"
-for f in \
-  "hooks/stop-hook.sh" \
-  "hooks/hooks.json" \
-  "scripts/state-helpers.sh" \
-  "scripts/personas.sh" \
-  "scripts/start-loop.sh" \
-  "scripts/cancel-loop.sh" \
-  "scripts/rollback-loop.sh" \
-  "scripts/mark-done.sh" \
-  "scripts/status.sh" \
-  "scripts/doctor.sh" \
-  "scripts/prompts/plan-mode-init.md" \
-  "scripts/prompts/plan-mode-from-draft.md" \
-  "scripts/prompts/plan-mode-review.md" \
-  "scripts/prompts/review-mode-init.md" \
+PLUGIN_FILES=(
+  "hooks/stop-hook.sh"
+  "hooks/hooks.json"
+  "scripts/state-helpers.sh"
+  "scripts/personas.sh"
+  "scripts/start-loop.sh"
+  "scripts/cancel-loop.sh"
+  "scripts/rollback-loop.sh"
+  "scripts/mark-done.sh"
+  "scripts/status.sh"
+  "scripts/doctor.sh"
+  "scripts/prompts/plan-mode-init.md"
+  "scripts/prompts/plan-mode-from-draft.md"
+  "scripts/prompts/plan-mode-review.md"
+  "scripts/prompts/review-mode-init.md"
   "scripts/prompts/review-mode-findings.md"
-do
-  check "$f present" test -f "$CLAUDE_PLUGIN_ROOT/$f"
+)
+missing_files=()
+for f in "${PLUGIN_FILES[@]}"; do
+  [ -f "$CLAUDE_PLUGIN_ROOT/$f" ] || missing_files+=("$f")
 done
+if [ ${#missing_files[@]} -eq 0 ]; then
+  printf '  %s✓%s all %d plugin files present\n' "$C_GREEN" "$C_RESET" "${#PLUGIN_FILES[@]}"
+  pass=$((pass+1))
+else
+  printf '  %s✗%s %d of %d plugin files missing:\n' "$C_RED" "$C_RESET" "${#missing_files[@]}" "${#PLUGIN_FILES[@]}"
+  for f in "${missing_files[@]}"; do
+    printf '      - %s\n' "$f"
+  done
+  fail=$((fail+1))
+  fail_msgs+=("plugin files missing")
+fi
 
 section "Hook fail-open sanity"
 HOOK="$CLAUDE_PLUGIN_ROOT/hooks/stop-hook.sh"

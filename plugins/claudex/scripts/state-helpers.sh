@@ -79,13 +79,24 @@ claudex_state_set_field() {
   local value="$3"
   [ -f "$file" ] || return 1
   local tmp="${file}.tmp.$$"
+  local now
+  now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   if grep -qE "^${field}:" "$file" 2>/dev/null; then
-    sed -E "s/^${field}: .*/${field}: ${value}/" "$file" > "$tmp" 2>/dev/null \
+    sed -E -e "s/^${field}: .*/${field}: ${value}/" \
+           -e "s/^last_updated_at: .*/last_updated_at: ${now}/" \
+           "$file" > "$tmp" 2>/dev/null \
       || { rm -f "$tmp"; return 1; }
   else
-    cat "$file" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    sed -E "s/^last_updated_at: .*/last_updated_at: ${now}/" "$file" > "$tmp" 2>/dev/null \
+      || { rm -f "$tmp"; return 1; }
     printf '%s: %s\n' "$field" "$value" >> "$tmp" 2>/dev/null \
       || { rm -f "$tmp"; return 1; }
+  fi
+  # Don't recursively bump last_updated_at when we ARE setting last_updated_at,
+  # otherwise the explicit value gets clobbered.
+  if [ "$field" = "last_updated_at" ]; then
+    sed -E "s/^last_updated_at: .*/last_updated_at: ${value}/" "$tmp" > "${tmp}.2" 2>/dev/null \
+      && mv -f "${tmp}.2" "$tmp"
   fi
   mv -f "$tmp" "$file" 2>/dev/null || { rm -f "$tmp"; return 1; }
   return 0

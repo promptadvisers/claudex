@@ -94,7 +94,14 @@ printf '  %-13s %s\n' "review_id"  "$REVIEW_ID"
 printf '  %-13s %s\n' "mode"       "$MODE"
 printf '  %-13s %s%s%s\n' "phase"  "$PHASE_COLOR" "$PHASE" "$C_RESET"
 if [ -n "$ROUND" ] && [ -n "$MAX_ROUNDS" ]; then
-  printf '  %-13s %s of %s\n' "round" "$ROUND" "$MAX_ROUNDS"
+  # Cap displayed round at max_rounds. The internal counter increments past
+  # max_rounds for one tick before max-rounds termination is detected, which
+  # would otherwise show "round 3 of 2" to the user.
+  display_round="$ROUND"
+  if [ "$ROUND" -gt "$MAX_ROUNDS" ] 2>/dev/null; then
+    display_round="$MAX_ROUNDS"
+  fi
+  printf '  %-13s %s of %s\n' "round" "$display_round" "$MAX_ROUNDS"
 fi
 [ -n "$TOPIC" ]      && printf '  %-13s %s\n' "topic"      "$TOPIC"
 [ -n "$STARTED" ]    && printf '  %-13s %s\n' "started_at" "$STARTED"

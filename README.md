@@ -213,6 +213,10 @@ The Stop hook is fail-open everywhere. Any error returns `{"decision":"approve"}
 | `CLAUDEX_STALE_MINUTES` | 15 | Loops older than this are auto-swept on next invocation |
 | `CLAUDEX_STATE_DIR` | `.claude/claudex` | State directory location |
 
+## Cost expectation
+
+Each plan-mode round is one full Codex review of `PLAN.md`. In practice that's ~25–30k Codex tokens per round. With the default 3 rounds you should expect **~75–90k tokens per `/claudex:plan`**. Codex authenticates against your ChatGPT account, so the bill goes to your ChatGPT Plus / Pro / Team / Enterprise plan, not to claudex. If you're on a tight rate limit, run `--rounds 2` for fast topics and reserve `--rounds 5+` for high-stakes designs.
+
 ## Safety
 
 The plugin is designed to fail open everywhere. You can never get trapped in a broken loop. See [`docs/SAFETY.md`](plugins/claudex/docs/SAFETY.md) for the complete list of what claudex does and does NOT do.

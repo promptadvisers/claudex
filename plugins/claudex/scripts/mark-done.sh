@@ -32,8 +32,11 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 claudex_state_set_field "$STATE_FILE" "decision_signal" "no-material-findings" || exit 1
-claudex_state_set_field "$STATE_FILE" "phase" "done" || exit 1
 claudex_state_set_field "$STATE_FILE" "last_updated_at" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" || exit 1
 
-echo "Loop $REVIEW_ID marked as done."
+# Note: phase stays at "reviewing" so the next Stop-hook fire enters the
+# summarizing path and BLOCKs once with the final summary for the user.
+# The summary fire transitions reviewing -> summarizing -> done.
+
+echo "Loop $REVIEW_ID marked as done. Stop hook will deliver the summary on next fire."
 exit 0

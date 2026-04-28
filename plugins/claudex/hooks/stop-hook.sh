@@ -125,6 +125,28 @@ format_elapsed() {
   fi
 }
 
+# Build the per-round findings table for the final summary BLOCK.
+# Iterates 1..final_round, reads each findings file, counts severities,
+# pairs with the persona label. Empty if no rounds completed.
+build_rounds_table() {
+  local final_round="$1"
+  local i
+  local table=""
+  for i in $(seq 1 "$final_round"); do
+    local ff="$REVIEW_DIR/findings-round-$i.md"
+    local label
+    label=$(claudex_persona_label_for_round "$i")
+    local counts
+    if [ -f "$ff" ]; then
+      counts=$(claudex_findings_severity_counts "$ff")
+    else
+      counts="no findings file"
+    fi
+    table="${table}- Round $i ($label): $counts"$'\n'
+  done
+  printf '%s' "$table"
+}
+
 # write_runner_script <mode> <focus> <round>
 # The third arg is the round number to print in headers and use in the
 # findings file path. Pass it explicitly so the caller controls parity
@@ -268,7 +290,7 @@ When Codex finishes, read the clean findings summary from:
 - **Material findings exist** → revise PLAN.md to address them. Append (or update) a '## Changelog' section at the bottom of PLAN.md noting what you took and what you rejected with reasoning. Then end your turn.
 - **No material findings (or only style nits)** → mark the loop done:
   \`\`\`
-  bash $CLAUDE_PLUGIN_ROOT/scripts/mark-done.sh $REVIEW_ID
+  bash \${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh $REVIEW_ID
   \`\`\`
   Then end your turn.
 
@@ -280,24 +302,30 @@ When Codex finishes, read the clean findings summary from:
     reviewing)
       # Claude has run review and either revised PLAN.md or marked done.
       if [ "$DECISION_SIGNAL" = "no-material-findings" ]; then
-        # Loop complete.
-        if ! claudex_phase_transition "$ACTIVE_STATE" "reviewing" "done"; then
-          log "CAS reviewing->done failed (already done?)"
+        # Loop complete. Transition to summarizing and BLOCK with the final
+        # summary so the user actually sees the loop landed.
+        if ! claudex_phase_transition "$ACTIVE_STATE" "reviewing" "summarizing"; then
+          log "CAS reviewing->summarizing failed (already done?)"
+          approve "CAS failed"
         fi
-        # Read changelog if it exists.
-        CHANGELOG=""
-        if [ -f "PLAN.md" ]; then
-          CHANGELOG=$(awk '/^## Changelog/,/^## /' PLAN.md 2>/dev/null | tail -n +2 | head -20)
-        fi
-        rm -f "$RUNNER" "$STATE_DIR/$REVIEW_ID-prompt.txt" 2>/dev/null
-        rm -f "$STATE_DIR/$REVIEW_ID.lock" 2>/dev/null
         ELAPSED=$(format_elapsed "$STARTED_AT_EPOCH")
-        if [ -n "$ELAPSED" ]; then
-          log "Plan loop $REVIEW_ID complete after $ROUND round(s) in $ELAPSED"
-        else
-          log "Plan loop $REVIEW_ID complete after $ROUND round(s)"
-        fi
-        approve "plan loop complete"
+        [ -z "$ELAPSED" ] && ELAPSED="—"
+        ROUNDS_TABLE=$(build_rounds_table "$ROUND")
+
+        SUMMARY="### Claudex plan loop complete ✓
+
+The plan at \`PLAN.md\` is locked. Codex had no substantive findings on the final round.
+
+**Rounds run:** $ROUND of $MAX_ROUNDS
+**Total time:** $ELAPSED
+
+**Findings by round:**
+
+$ROUNDS_TABLE
+
+**Print this summary to the user so they see the loop landed.** Then end your turn — the Stop hook will allow exit cleanly."
+        log "Plan loop $REVIEW_ID complete after $ROUND round(s) in $ELAPSED"
+        block "$SUMMARY"
       fi
 
       # No done signal. Claude must have revised. Increment round.
@@ -305,18 +333,38 @@ When Codex finishes, read the clean findings summary from:
       claudex_state_set_field "$ACTIVE_STATE" "round" "$NEW_ROUND"
 
       if [ "$NEW_ROUND" -gt "$MAX_ROUNDS" ]; then
-        # Max rounds hit.
+        # Max rounds hit. Transition to summarizing and BLOCK with a
+        # summary that points the user at the final round's findings.
         claudex_state_set_field "$ACTIVE_STATE" "decision_signal" "max-reached"
-        claudex_state_set_field "$ACTIVE_STATE" "phase" "done"
-        rm -f "$RUNNER" "$STATE_DIR/$REVIEW_ID-prompt.txt" 2>/dev/null
-        rm -f "$STATE_DIR/$REVIEW_ID.lock" 2>/dev/null
+        claudex_state_set_field "$ACTIVE_STATE" "phase" "summarizing"
         ELAPSED=$(format_elapsed "$STARTED_AT_EPOCH")
-        if [ -n "$ELAPSED" ]; then
-          log "Plan loop $REVIEW_ID stopped at max rounds after $ELAPSED"
-        else
-          log "Plan loop $REVIEW_ID stopped at max rounds"
-        fi
-        approve "max rounds reached"
+        [ -z "$ELAPSED" ] && ELAPSED="—"
+        ROUNDS_TABLE=$(build_rounds_table "$ROUND")
+        FINAL_FINDINGS="$REVIEW_DIR/findings-round-$ROUND.md"
+
+        SUMMARY="### Claudex plan loop stopped at max rounds (round $ROUND of $MAX_ROUNDS)
+
+The plan at \`PLAN.md\` was revised through every available round. The final round still had material findings.
+
+**Total time:** $ELAPSED
+
+**Findings by round:**
+
+$ROUNDS_TABLE
+
+The user should look at the last round's findings file:
+
+\`$FINAL_FINDINGS\`
+
+Then decide:
+
+- Apply more revisions manually, or
+- Re-run with a higher round budget (e.g. \`/claudex:plan --rounds 5 ...\`), or
+- Accept the current plan as a known-incomplete artifact and document the open concerns.
+
+**Print this summary to the user.** Then end your turn — the Stop hook will allow exit cleanly."
+        log "Plan loop $REVIEW_ID stopped at max rounds after $ELAPSED"
+        block "$SUMMARY"
       fi
 
       # Run another round. Promote local ROUND to NEW_ROUND so the runner
@@ -411,11 +459,23 @@ Findings summary will be written to:
 - **Material findings** → revise PLAN.md (update the Changelog) and end your turn. Round will auto-increment.
 - **No material findings** → mark done:
   \`\`\`
-  bash $CLAUDE_PLUGIN_ROOT/scripts/mark-done.sh $REVIEW_ID
+  bash \${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh $REVIEW_ID
   \`\`\`
   Then end your turn."
 
       block "$MSG"
+      ;;
+
+    summarizing)
+      # Summary BLOCK was delivered on the previous fire and Claude has
+      # printed it to the user. Final cleanup and approve.
+      claudex_phase_transition "$ACTIVE_STATE" "summarizing" "done" 2>/dev/null
+      rm -f "$RUNNER" "$STATE_DIR/$REVIEW_ID-prompt.txt" "$STATE_DIR/$REVIEW_ID.lock" 2>/dev/null
+      ELAPSED=$(format_elapsed "$STARTED_AT_EPOCH")
+      if [ -n "$ELAPSED" ]; then
+        log "Plan loop $REVIEW_ID summary delivered; total elapsed $ELAPSED"
+      fi
+      approve "summary delivered"
       ;;
 
     done)

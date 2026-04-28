@@ -20,5 +20,3 @@ Keep it terse. Each numbered item should be one or two sentences. The plan shoul
 ## After saving PLAN.md
 
 Just end your turn. The Stop hook will fire automatically and start the adversarial review loop. You do not need to invoke any other commands.
-
-Review ID for this loop: {{REVIEW_ID}}

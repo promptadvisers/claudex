@@ -94,16 +94,26 @@ check "hook returns block (round 2)" grep -q block "$HOOK_OUT_FILE"
 new_round=$(grep '^round:' "$STATE_FILE" | sed 's/^round: //')
 check "round incremented to 2" test "$new_round" = "2"
 
-section "6. mark-done signals loop end"
+section "6. mark-done signals loop end (sets signal, leaves phase=reviewing)"
 bash "$MARK_DONE" "$REVIEW_ID" >/dev/null 2>&1
-done_phase=$(grep '^phase:' "$STATE_FILE" | sed 's/^phase: //')
-done_signal=$(grep '^decision_signal:' "$STATE_FILE" | sed 's/^decision_signal: //')
-check "mark-done set phase=done" test "$done_phase" = "done"
-check "mark-done set signal=no-material-findings" test "$done_signal" = "no-material-findings"
+post_phase=$(grep '^phase:' "$STATE_FILE" | sed 's/^phase: //')
+post_signal=$(grep '^decision_signal:' "$STATE_FILE" | sed 's/^decision_signal: //')
+check "mark-done leaves phase=reviewing" test "$post_phase" = "reviewing"
+check "mark-done set signal=no-material-findings" test "$post_signal" = "no-material-findings"
 
-section "7. Hook with phase=done -> approve"
-hook_out=$(echo '{}' | bash "$HOOK" 2>/dev/null)
-check "hook returns approve" bash -c "echo '$hook_out' | grep -q approve"
+section "7. Hook with phase=reviewing + signal=no-material-findings -> BLOCK with summary"
+echo '{}' | bash "$HOOK" 2>/dev/null > "$HOOK_OUT_FILE"
+check "summary fire returns block" grep -q block "$HOOK_OUT_FILE"
+check "summary mentions 'plan loop complete'" grep -qi 'plan loop complete' "$HOOK_OUT_FILE"
+check "summary mentions 'Findings by round'" grep -q 'Findings by round' "$HOOK_OUT_FILE"
+summarizing_phase=$(grep '^phase:' "$STATE_FILE" | sed 's/^phase: //')
+check "phase transitioned to summarizing" test "$summarizing_phase" = "summarizing"
+
+section "7b. Next hook fire: summarizing -> done -> approve"
+echo '{}' | bash "$HOOK" 2>/dev/null > "$HOOK_OUT_FILE"
+check "post-summary fire returns approve" grep -q approve "$HOOK_OUT_FILE"
+final_phase=$(grep '^phase:' "$STATE_FILE" | sed 's/^phase: //')
+check "phase is now done" test "$final_phase" = "done"
 
 section "8. Cancel-loop"
 bash "$ROLLBACK" >/dev/null 2>&1
@@ -146,10 +156,11 @@ bash "$ROLLBACK" >/dev/null 2>&1
 section "12. P2 fix - back-to-back loops after completion"
 bash "$START" plan "first loop" >/dev/null 2>&1
 echo "# plan" > PLAN.md
-echo '{}' | bash "$HOOK" >/dev/null 2>&1   # transitions to reviewing, writes runner
+echo '{}' | bash "$HOOK" >/dev/null 2>&1   # drafting -> reviewing, writes runner
 FIRST_ID=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
 bash "$MARK_DONE" "$FIRST_ID" >/dev/null 2>&1
-echo '{}' | bash "$HOOK" >/dev/null 2>&1   # cleans up lockfile
+echo '{}' | bash "$HOOK" >/dev/null 2>&1   # reviewing -> summarizing, BLOCK with summary
+echo '{}' | bash "$HOOK" >/dev/null 2>&1   # summarizing -> done, cleans up lockfile + runner
 # Lockfile should now be gone, state file remains
 check "lockfile removed after completion" bash -c "! test -f .claude/claudex/$FIRST_ID.lock"
 check "state file kept for audit" test -f ".claude/claudex/$FIRST_ID.state"
@@ -315,6 +326,53 @@ bash "$ROLLBACK" >/dev/null 2>&1
 section "27. /claudex:status on empty state directory"
 status_out=$(bash "$PLUGIN_ROOT/scripts/status.sh" 2>&1)
 check "status reports no loops cleanly" bash -c "echo '$status_out' | grep -qi 'no.*loops'"
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "28. Max-rounds termination delivers a summary BLOCK (not silent approve)"
+bash "$START" plan --rounds 1 "max-rounds test" >/dev/null 2>&1
+ID28=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+ST28=".claude/claudex/$ID28.state"
+echo "# plan" > PLAN.md
+echo '{}' | bash "$HOOK" >/dev/null 2>&1   # drafting -> reviewing
+# Without mark-done and without a fresh PLAN, the next fire increments round past max
+echo '{}' | bash "$HOOK" 2>/dev/null > "$HOOK_OUT_FILE"   # round 1 -> would be round 2 > max=1
+check "max-rounds fire returns block (with summary)" grep -q block "$HOOK_OUT_FILE"
+check "summary mentions 'stopped at max rounds'" grep -qi 'stopped at max rounds' "$HOOK_OUT_FILE"
+phase28=$(grep '^phase:' "$ST28" | sed 's/^phase: //')
+check "phase=summarizing after max-rounds BLOCK" test "$phase28" = "summarizing"
+signal28=$(grep '^decision_signal:' "$ST28" | sed 's/^decision_signal: //')
+check "signal=max-reached" test "$signal28" = "max-reached"
+echo '{}' | bash "$HOOK" 2>/dev/null > "$HOOK_OUT_FILE"   # summarizing -> done -> approve
+check "next fire returns approve" grep -q approve "$HOOK_OUT_FILE"
+phase28b=$(grep '^phase:' "$ST28" | sed 's/^phase: //')
+check "phase=done after summary delivered" test "$phase28b" = "done"
+rm -f PLAN.md
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "29. mark-done.sh BLOCK uses literal \${CLAUDE_PLUGIN_ROOT}"
+bash "$START" plan "literal pluginroot test" >/dev/null 2>&1
+echo "# plan" > PLAN.md
+echo '{}' | bash "$HOOK" 2>/dev/null > "$HOOK_OUT_FILE"
+check "BLOCK contains literal \${CLAUDE_PLUGIN_ROOT} placeholder" \
+  grep -q '\${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh' "$HOOK_OUT_FILE"
+check "BLOCK does NOT contain a leaked absolute path" \
+  bash -c "! grep -q '$PLUGIN_ROOT/scripts/mark-done.sh' '$HOOK_OUT_FILE'"
+rm -f PLAN.md
+
+bash "$ROLLBACK" >/dev/null 2>&1
+
+section "30. last_updated_at refreshes on every state mutation"
+bash "$START" plan "last_updated test" >/dev/null 2>&1
+ID30=$(ls .claude/claudex/*.state 2>/dev/null | head -1 | xargs -n1 basename | sed 's/.state$//')
+ST30=".claude/claudex/$ID30.state"
+ts_initial=$(grep '^last_updated_at:' "$ST30" | sed 's/^last_updated_at: //')
+sleep 1
+source "$PLUGIN_ROOT/scripts/state-helpers.sh"
+claudex_state_set_field "$ST30" "round" "2"
+ts_after_set=$(grep '^last_updated_at:' "$ST30" | sed 's/^last_updated_at: //')
+check "last_updated_at refreshed by set_field" test "$ts_initial" != "$ts_after_set"
 
 # Cleanup
 cd - >/dev/null
