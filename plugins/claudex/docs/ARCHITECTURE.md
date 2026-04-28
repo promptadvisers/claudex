@@ -6,10 +6,10 @@ This document explains how claudex works under the hood. Read it once and you un
 
 Claude Code has a feature called **Stop hooks**. These are shell scripts that fire whenever Claude tries to finish a turn. They can return one of two decisions:
 
-- `{"decision":"approve"}` — let Claude exit normally
-- `{"decision":"block","reason":"..."}` — refuse to let Claude finish, force it to keep working with the reason text as the next instruction
+- `{"decision":"approve"}`. Let Claude exit normally
+- `{"decision":"block","reason":"..."}`. Refuse to let Claude finish, force it to keep working with the reason text as the next instruction
 
-Stop hooks are the **only** mechanism in Claude Code that can drive an autonomous loop. A slash command alone can't loop because slash commands are one-shot — they execute once, return their output, and Claude is done.
+Stop hooks are the **only** mechanism in Claude Code that can drive an autonomous loop. A slash command alone can't loop because slash commands are one-shot. They execute once, return their output, and Claude is done.
 
 Claudex is a thin orchestrator built on top of Stop hooks. The hook is the brain. Everything else is plumbing.
 

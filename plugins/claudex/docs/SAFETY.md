@@ -72,7 +72,7 @@ Claudex uses Codex via the Codex CLI, which runs against your ChatGPT subscripti
 
 Each plan-mode round is one full Codex review of `PLAN.md`. In practice that's **~25–30k Codex tokens per round**, so the default 3 rounds is **~75–90k tokens per `/claudex:plan`**. A `--rounds 5` run is ~125–150k. Each review-mode invocation is one Codex review (~25–40k tokens depending on diff size).
 
-If your ChatGPT plan has usage limits, monitor them. Claudex cannot enforce limits or stop on cost — that's between you and OpenAI. Practical guidance:
+If your ChatGPT plan has usage limits, monitor them. Claudex cannot enforce limits or stop on cost. That is between you and OpenAI. Practical guidance:
 
 - **Plus / Team:** `--rounds 3` (default) is fine for most plans. Avoid running multiple `/claudex:plan` back-to-back without a break.
 - **Pro / Enterprise:** `--rounds 5–7` is comfortable for high-stakes designs.

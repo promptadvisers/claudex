@@ -70,7 +70,7 @@ export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 echo "Synthetic project at: $SYNTH_DIR"
 echo "Plugin root:          $PLUGIN_ROOT"
 
-# Round 0 — initialize loop.
+# Round 0, initialize loop.
 section "Round 0: start-loop"
 START_OUTPUT=$(bash "$START" plan "$TOPIC" 2>&1)
 echo "$START_OUTPUT" | head -8
@@ -99,7 +99,7 @@ EOF
 echo "PLAN.md written ($(wc -l < PLAN.md) lines)."
 check "PLAN.md exists" test -f PLAN.md
 
-# Fire hook for round 1 — should BLOCK with runner script.
+# Fire hook for round 1, should BLOCK with runner script.
 section "Round 1: fire hook (drafting -> reviewing)"
 HOOK_OUT=$(echo '{}' | bash "$HOOK" 2>/dev/null)
 echo "Hook output: $(printf '%s' "$HOOK_OUT" | head -c 80)..."
@@ -131,7 +131,7 @@ SIGNAL=$(grep '^decision_signal:' ".claude/claudex/$REVIEW_ID.state" | sed 's/^d
 check "phase marked done" test "$PHASE" = "done"
 check "signal set to no-material-findings" test "$SIGNAL" = "no-material-findings"
 
-# Final hook fire — should ALLOW.
+# Final hook fire, should ALLOW.
 section "Final hook fire"
 HOOK_OUT=$(echo '{}' | bash "$HOOK" 2>/dev/null)
 echo "Final hook output: $HOOK_OUT"

@@ -1,13 +1,12 @@
 <h1 align="center">claudex</h1>
 
 <p align="center">
-  <strong>Autonomous Claude + Codex review loop for Claude Code.</strong><br/>
-  Plan a feature with adversarial pushback. Audit code with a fresh pair of eyes.<br/>
-  All in one Claude Code session, hands off the keyboard.
+  <strong>Two AIs argue about your plan so you don't have to.</strong><br/>
+  Claude turns your one-line idea into a detailed plan. Codex (a different AI) grills it from three different angles. Claude revises. They keep going until there's nothing left to fix. You watch from one terminal window.
 </p>
 
 <p align="center">
-  <img src="docs/images/loop_lifecycle.jpg" alt="The claudex loop — Draft, Grill, Revise, Done" width="820"/>
+  <img src="docs/images/loop_lifecycle.jpg" alt="The claudex loop. Draft, Grill, Revise, Done." width="820"/>
 </p>
 
 <p align="center">
@@ -30,6 +29,27 @@
 
 ---
 
+## What you actually get
+
+- **A plan that's already been argued with.** You start with a one-liner. You walk away with a numbered plan that has survived rounds of cross-examination.
+- **Two AIs cross-checking each other.** Claude is the writer. Codex is the reviewer. Neither one gets the last word alone.
+- **Three different reviewer hats.** Round 1 thinks like a senior engineer. Round 2 thinks like a security person. Round 3 thinks like an ops person. So you don't miss a category of problem.
+- **One window, no babysitting.** You type one slash command. Walk away. Come back to a finished plan and a clean summary of what changed each round.
+
+## Who this is for
+
+Claudex is a developer tool. You'll be comfortable with it if:
+
+- You already use **Claude Code** (Anthropic's official CLI).
+- You're okay running a few terminal commands to install dependencies.
+- You have a **ChatGPT Plus, Pro, Team, or Enterprise** account (Codex authenticates against that).
+
+If "terminal", "slash command", or "CLI" feel foreign, you'll get more value from the [Early AI-dopters community](https://www.skool.com/earlyaidopters/about), where this stuff gets taught with hand-holding instead of from a README.
+
+---
+
+## What it looks like in practice
+
 ```
 $ /claudex:plan add expiry dates to my links
 
@@ -37,11 +57,11 @@ $ /claudex:plan add expiry dates to my links
     → Interview me first
     → Just launch the loop
 
-  Round 1 of 3 — Senior-engineer review
+  Round 1 of 3, Senior-engineer review
         Codex: 5 findings (2 high, 3 medium)
-  Round 2 of 3 — Security and data-integrity review
+  Round 2 of 3, Security and data-integrity review
         Codex: 1 high, 1 low
-  Round 3 of 3 — Ops and SRE review
+  Round 3 of 3, Ops and SRE review
         Codex: no substantive findings
   LGTM. Plan locked.
 
@@ -55,7 +75,7 @@ That's claudex.
 
 ---
 
-## What it actually is
+## Under the hood
 
 Two slash commands wired through a Claude Code Stop hook, plus four utility commands. The Stop hook is the only mechanism in Claude Code that can force an autonomous loop. Claudex uses it to drive Claude and Codex back and forth until the work is done.
 
@@ -63,10 +83,10 @@ Two slash commands wired through a Claude Code Stop hook, plus four utility comm
 |---|---|---|
 | `/claudex:plan [flags] <feature>` | Plan mode | Optionally interviews you to sharpen the topic, then Claude drafts `PLAN.md`, Codex pressure-tests it, Claude revises. Each round uses a different reviewer persona. Loops until LGTM or N rounds. |
 | `/claudex:review` | Review mode | Codex reviews the diff. Findings + proposed fixes written to `reviews/`. **Read-only in v1.** |
-| `/claudex:status` | — | Print the current loop's mode, phase, round, elapsed time, and per-round severity tallies. Read-only. |
-| `/claudex:doctor` | — | Preflight diagnostic. Verifies bash, codex CLI, plugin file integrity, hook fail-open. Run after install. |
-| `/claudex:cancel` | — | Graceful cancel of the active loop. |
-| `/claudex:rollback` | — | Nuclear cleanup of all state files. |
+| `/claudex:status` | utility | Print the current loop's mode, phase, round, elapsed time, and per-round severity tallies. Read-only. |
+| `/claudex:doctor` | utility | Preflight diagnostic. Verifies bash, codex CLI, plugin file integrity, hook fail-open. Run after install. |
+| `/claudex:cancel` | utility | Graceful cancel of the active loop. |
+| `/claudex:rollback` | utility | Nuclear cleanup of all state files. |
 
 ### Plan-mode flags
 
@@ -87,15 +107,15 @@ Two slash commands wired through a Claude Code Stop hook, plus four utility comm
 
 ## Why this is different from solo Claude or solo Codex
 
-Most "AI loop" plugins for Claude Code only do code review. Plan mode is the bigger unlock — having Codex pressure-test a *design* before you write a line of code is the move that compounds the most over time. Two rounds and your plan is bulletproof. You haven't written any code. That's the magic.
+Most "AI loop" plugins for Claude Code only do code review. Plan mode is the bigger unlock. Having Codex pressure-test a *design* before you write a line of code is the move that compounds the most over time. Two rounds and your plan is bulletproof. You haven't written any code. That's the magic.
 
 And the rounds aren't identical. Each round flips Codex into a different reviewer:
 
-![Three reviewers, one loop — senior engineer, security, ops/SRE](docs/images/persona_rotation.jpg)
+![Three reviewers, one loop. Senior engineer, security, ops/SRE.](docs/images/persona_rotation.jpg)
 
-- **Round 1 — Senior engineer.** Hunts for design flaws and broken assumptions.
-- **Round 2 — Security and data integrity.** Auth gaps, race conditions, partial-failure recovery, data loss.
-- **Round 3+ — Ops and SRE.** Rollback safety, observability, gradual rollout, version skew.
+- **Round 1, the senior engineer.** Hunts for design flaws and broken assumptions.
+- **Round 2, the security and data-integrity reviewer.** Auth gaps, race conditions, partial-failure recovery, data loss.
+- **Round 3+, the ops and SRE reviewer.** Rollback safety, observability, gradual rollout, version skew.
 
 If `--rounds N` pushes past three, the ops persona deepens on subsequent rounds rather than going generic.
 
@@ -114,7 +134,7 @@ Before installing claudex, you need:
 
 ### Recommended companion (not required)
 
-[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) — the official Codex plugin for Claude Code. Adds `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`, and `/codex:setup` slash commands.
+[`openai/codex-plugin-cc`](https://github.com/openai/codex-plugin-cc) is the official Codex plugin for Claude Code. It adds `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`, and `/codex:setup` slash commands.
 
 To install:
 
@@ -225,7 +245,7 @@ Highlights:
 
 - Hook fails open on every error (ERR trap installed at the top)
 - Plan mode only writes to `PLAN.md` and `.claude/claudex/`
-- **Review mode v1 is read-only** — does NOT edit your code
+- **Review mode v1 is read-only.** It does NOT edit your code
 - Concurrent loops detected and refused (phase-based, not file-presence)
 - Stale loops auto-cleaned after 15 min
 - Atomic state writes (tmp + rename)
@@ -233,9 +253,9 @@ Highlights:
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](plugins/claudex/docs/ARCHITECTURE.md) — full technical walkthrough. Loop lifecycle, state machine, fail-open patterns.
-- [`docs/SAFETY.md`](plugins/claudex/docs/SAFETY.md) — explicit guarantees and non-guarantees. Read before installing.
-- [`docs/V2_DESIGN.md`](plugins/claudex/docs/V2_DESIGN.md) — design for v2 auto-apply review mode (not built in v1).
+- [`docs/ARCHITECTURE.md`](plugins/claudex/docs/ARCHITECTURE.md). Full technical walkthrough. Loop lifecycle, state machine, fail-open patterns.
+- [`docs/SAFETY.md`](plugins/claudex/docs/SAFETY.md). Explicit guarantees and non-guarantees. Read before installing.
+- [`docs/V2_DESIGN.md`](plugins/claudex/docs/V2_DESIGN.md). Design for v2 auto-apply review mode (not built in v1).
 
 ## Tests
 

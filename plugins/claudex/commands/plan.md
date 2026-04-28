@@ -14,9 +14,9 @@ You are running the claudex plan-mode autonomous loop. The user wants you to dra
 
 Parse these flags from the start of $ARGUMENTS (the script handles them; you mainly need to detect `--skip-interview`):
 
-- `--rounds N` — override the default max rounds (3). Common picks: 3 (default, fast), 5 (deeper grilling), 7+ (very high stakes).
-- `--from-draft` — use the existing `PLAN.md` in the project root instead of drafting from scratch. PLAN.md must exist and be non-empty.
-- `--skip-interview` — bypass the topic-sharpening interview offer in step 2 below. Useful when you've already nailed the topic or you're in a rush.
+- `--rounds N`. Override the default max rounds (3). Common picks: 3 (default, fast), 5 (deeper grilling), 7+ (very high stakes).
+- `--from-draft`. Use the existing `PLAN.md` in the project root instead of drafting from scratch. PLAN.md must exist and be non-empty.
+- `--skip-interview`. Bypass the topic-sharpening interview offer in step 2 below. Useful when you've already nailed the topic or you're in a rush.
 
 ## Procedure
 
@@ -32,15 +32,15 @@ Wait for their reply, then re-invoke `/claudex:plan <their answer>`. Do not proc
 
 ### 2. Offer the topic-sharpening interview
 
-If $ARGUMENTS does NOT contain `--skip-interview`, use the AskUserQuestion tool to offer the user a quick interview before launching the loop. The interview lets the user front-load constraints and worries that would otherwise come out only when Codex flags them on round 2 or 3 — a much cheaper signal capture.
+If $ARGUMENTS does NOT contain `--skip-interview`, use the AskUserQuestion tool to offer the user a quick interview before launching the loop. The interview lets the user front-load constraints and worries that would otherwise come out only when Codex flags them on round 2 or 3, a much cheaper signal capture.
 
 Use this exact AskUserQuestion call:
 
 - **Question:** "Want me to interview you to sharpen the topic before launching the adversarial loop, or just go?"
 - **Header:** "Interview"
 - **Options:**
-  1. Label: "Interview me first (Recommended)" — Description: "I'll ask 3 quick questions about scope, constraints, and edge cases you're worried about. Then I launch the loop with a sharper topic. Costs ~30 seconds, saves a round of grilling."
-  2. Label: "Just launch the loop" — Description: "Skip the interview and start drafting PLAN.md from the topic as written. Faster, but Codex may surface basic gaps you could have answered up front."
+  1. Label: "Interview me first (Recommended)", Description: "I'll ask 3 quick questions about scope, constraints, and edge cases you're worried about. Then I launch the loop with a sharper topic. Costs ~30 seconds, saves a round of grilling."
+  2. Label: "Just launch the loop", Description: "Skip the interview and start drafting PLAN.md from the topic as written. Faster, but Codex may surface basic gaps you could have answered up front."
 
 If the user picks "Just launch the loop", skip to step 4.
 
@@ -66,7 +66,7 @@ After the user answers, compose an enriched topic string as a SINGLE LINE using 
 <original topic>; Scope: <answer 1>; Constraints: <answer 2>; Worries: <answer 3 joined by ', '>
 ```
 
-Pass this enriched topic to start-loop.sh (still using --interviewed so it gets recorded in state). Do NOT show the user the enriched topic before launching — they don't need to re-confirm. Just go.
+Pass this enriched topic to start-loop.sh (still using --interviewed so it gets recorded in state). Do NOT show the user the enriched topic before launching, they don't need to re-confirm. Just go.
 
 ### 4. Launch the loop
 

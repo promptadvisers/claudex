@@ -271,7 +271,7 @@ Write that file before exiting. The next reviewer reads only that file, not your
 
       PERSONA_LABEL=$(claudex_persona_label_for_round "$ROUND")
 
-      MSG="### Claudex round $ROUND of $MAX_ROUNDS — $PERSONA_LABEL
+      MSG="### Claudex round $ROUND of $MAX_ROUNDS, $PERSONA_LABEL
 
 **Run the runner:**
 
@@ -309,7 +309,7 @@ When Codex finishes, read the clean findings summary from:
           approve "CAS failed"
         fi
         ELAPSED=$(format_elapsed "$STARTED_AT_EPOCH")
-        [ -z "$ELAPSED" ] && ELAPSED="—"
+        [ -z "$ELAPSED" ] && ELAPSED="unknown"
         ROUNDS_TABLE=$(build_rounds_table "$ROUND")
 
         SUMMARY="### Claudex plan loop complete ✓
@@ -323,7 +323,7 @@ The plan at \`PLAN.md\` is locked. Codex had no substantive findings on the fina
 
 $ROUNDS_TABLE
 
-**Print this summary to the user so they see the loop landed.** Then end your turn — the Stop hook will allow exit cleanly."
+**Print this summary to the user so they see the loop landed.** Then end your turn. The Stop hook will allow exit cleanly."
         log "Plan loop $REVIEW_ID complete after $ROUND round(s) in $ELAPSED"
         block "$SUMMARY"
       fi
@@ -338,7 +338,7 @@ $ROUNDS_TABLE
         claudex_state_set_field "$ACTIVE_STATE" "decision_signal" "max-reached"
         claudex_state_set_field "$ACTIVE_STATE" "phase" "summarizing"
         ELAPSED=$(format_elapsed "$STARTED_AT_EPOCH")
-        [ -z "$ELAPSED" ] && ELAPSED="—"
+        [ -z "$ELAPSED" ] && ELAPSED="unknown"
         ROUNDS_TABLE=$(build_rounds_table "$ROUND")
         FINAL_FINDINGS="$REVIEW_DIR/findings-round-$ROUND.md"
 
@@ -362,7 +362,7 @@ Then decide:
 - Re-run with a higher round budget (e.g. \`/claudex:plan --rounds 5 ...\`), or
 - Accept the current plan as a known-incomplete artifact and document the open concerns.
 
-**Print this summary to the user.** Then end your turn — the Stop hook will allow exit cleanly."
+**Print this summary to the user.** Then end your turn. The Stop hook will allow exit cleanly."
         log "Plan loop $REVIEW_ID stopped at max rounds after $ELAPSED"
         block "$SUMMARY"
       fi
@@ -442,7 +442,7 @@ Write that file before exiting."
 "
       fi
 
-      MSG="### Claudex round $ROUND of $MAX_ROUNDS — $PERSONA_LABEL
+      MSG="### Claudex round $ROUND of $MAX_ROUNDS, $PERSONA_LABEL
 
 ${TRAJECTORY_LINE}**Run the runner:**
 

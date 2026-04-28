@@ -1,4 +1,4 @@
-# Claudex V2 Design — Auto-Apply Review Mode
+# Claudex V2 Design (Auto-Apply Review Mode)
 
 This document describes the design for v2 of claudex review mode. v2 adds the ability to auto-apply Codex's recommended fixes safely. v1 is read-only and produces a proposed-fixes file that the user applies manually.
 
@@ -69,9 +69,9 @@ snapshot_dir: .claude/claudex/20260426-094523-a3f7c2-snapshots
 
 ## New commands in v2
 
-- `/claudex:review --apply <feature description>` — opt-in auto-apply mode (default review mode stays read-only)
-- `/claudex:apply <review_id>` — merge the isolated branch into the user's current branch
-- `/claudex:rollback <review_id>` — delete the isolated branch and restore pre-loop state
+- `/claudex:review --apply <feature description>`. Opt-in auto-apply mode (default review mode stays read-only)
+- `/claudex:apply <review_id>`. Merge the isolated branch into the user's current branch
+- `/claudex:rollback <review_id>`. Delete the isolated branch and restore pre-loop state
 
 ## v2 safety guarantees (added on top of v1)
 
@@ -79,15 +79,15 @@ snapshot_dir: .claude/claudex/20260426-094523-a3f7c2-snapshots
 - All edits happen on `claudex/review-<id>`, never on the user's current branch
 - Every applied fix is a separate git commit on the isolated branch with rationale in the message
 - Pre-edit snapshots are saved so even individual edits can be reverted
-- The user must explicitly merge via `/claudex:apply` — nothing happens to their branch by default
+- The user must explicitly merge via `/claudex:apply`. Nothing happens to their branch by default
 - `/claudex:rollback` is irreversible from the plugin's perspective but git keeps the branch reflog for ~30 days
 
 ## Implementation phases (v2)
 
-- **Phase v2.1** — branch isolation and commit-per-fix on the isolated branch (no merge support yet)
-- **Phase v2.2** — `/claudex:apply` and `/claudex:rollback` commands
-- **Phase v2.3** — multi-agent Codex (parallel reviewers) opt-in
-- **Phase v2.4** — interactive apply (let the user pick which fixes to apply)
+- **Phase v2.1**. Branch isolation and commit-per-fix on the isolated branch (no merge support yet)
+- **Phase v2.2**. `/claudex:apply` and `/claudex:rollback` commands
+- **Phase v2.3**. Multi-agent Codex (parallel reviewers) opt-in
+- **Phase v2.4**. Interactive apply (let the user pick which fixes to apply)
 
 ## What v2 does NOT add
 
