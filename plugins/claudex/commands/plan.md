@@ -70,16 +70,28 @@ Pass this enriched topic to start-loop.sh (still using --interviewed so it gets 
 
 ### 4. Launch the loop
 
-Run start-loop.sh. Use $ARGUMENTS verbatim if no interview happened, or the enriched topic plus original flags if it did:
+Run start-loop.sh. **CRITICAL: the topic MUST be passed as a single double-quoted string.** User topics often contain apostrophes (`Mark's plugin`, `the entity's behavior`), single quotes, or other shell metacharacters. If you pass `$ARGUMENTS` raw, bash will see the apostrophe as an unterminated single-quoted string and fail with `unmatched '`.
+
+Compose the bash command this way:
+
+1. Identify any flags from `$ARGUMENTS`: `--rounds N`, `--from-draft`. (`--skip-interview` was already consumed in step 2.)
+2. Identify the topic: everything that isn't a recognized flag.
+3. Pass flags as-is (no quoting needed). Pass the topic as ONE double-quoted argument.
 
 ```bash
-# Without interview:
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan $ARGUMENTS
+# Without interview, topic always double-quoted:
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan [flags] "<topic>"
 
-# With interview (substitute <flags> with any --rounds/--from-draft from $ARGUMENTS,
-# and <enriched_topic> with the composed string):
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan <flags> --interviewed "<enriched_topic>"
+# Examples:
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan "add expiry dates to my links"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan --rounds 5 "migrate auth to Clerk's new API"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan --from-draft "refactor the billing pipeline"
+
+# With interview, the enriched topic is also double-quoted:
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/start-loop.sh" plan [flags] --interviewed "<enriched_topic>"
 ```
+
+If the topic itself contains a literal double quote, escape it with `\"` inside the double-quoted argument. Single quotes / apostrophes inside the double-quoted topic are safe and need no escaping.
 
 The script sets up state and prints initial instructions for you. Read them carefully.
 
