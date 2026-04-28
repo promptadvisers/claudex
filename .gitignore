@@ -1,0 +1,19 @@
+# Plugin runtime artifacts (per-loop, never committed).
+# Anchored paths so they don't hide similarly-named files inside the plugin
+# code (like commands/plan.md). The ** pattern catches runtime state created
+# by tests that cd into nested directories.
+/.claude/claudex/
+**/.claude/claudex/
+/PLAN.md
+/reviews/
+
+# Editor/OS noise
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Test scratch
+/tmp/

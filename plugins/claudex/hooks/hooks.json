@@ -1,0 +1,17 @@
+{
+  "description": "Claudex Stop hook: enforces the autonomous loop lifecycle. Fails open on every error path so the user can never get trapped.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-hook.sh",
+            "timeout": 60,
+            "statusMessage": "Claudex: checking loop state..."
+          }
+        ]
+      }
+    ]
+  }
+}

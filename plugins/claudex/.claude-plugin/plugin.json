@@ -1,0 +1,8 @@
+{
+  "name": "claudex",
+  "version": "0.1.0",
+  "description": "Autonomous Claude + Codex review loop. Plan a feature with adversarial pushback, or audit code, all in one window.",
+  "author": {
+    "name": "promptadvisers"
+  }
+}
