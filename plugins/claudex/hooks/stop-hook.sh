@@ -147,6 +147,44 @@ build_rounds_table() {
   printf '%s' "$table"
 }
 
+# build_review_round_block <round_num> <max_rounds> <persona_label> \
+#                          <runner_path> <findings_path> <trajectory_line> \
+#                          <review_id>
+# Constructs the BLOCK message Claude sees at the start of each review round.
+# All values explicit so the helper can be called from either the round-advance
+# branch OR the re-fire guard (where post-increment vars are not yet set).
+build_review_round_block() {
+  local round_num="$1"
+  local max_rounds="$2"
+  local persona_label="$3"
+  local runner_path="$4"
+  local findings_path="$5"
+  local trajectory_line="$6"
+  local review_id="$7"
+  cat <<EOF
+### Claudex round $round_num of $max_rounds, $persona_label
+
+${trajectory_line}**Run the runner:**
+
+\`\`\`
+bash $runner_path
+\`\`\`
+
+Findings summary will be written to:
+
+\`$findings_path\`
+
+**Then decide:**
+
+- **Material findings** → revise PLAN.md (update the Changelog) and end your turn. Round will auto-increment.
+- **No material findings** → mark done:
+  \`\`\`
+  bash \${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh $review_id
+  \`\`\`
+  Then end your turn.
+EOF
+}
+
 # write_runner_script <mode> <focus> <round>
 # The third arg is the round number to print in headers and use in the
 # findings file path. Pass it explicitly so the caller controls parity
@@ -172,6 +210,9 @@ write_runner_script() {
 
 $focus"
 
+  local findings_path="$REVIEW_DIR/findings-round-$round_num.md"
+  local sentinel_path="${findings_path}.ok"
+
   cat > "$RUNNER" <<RUNNEREOF
 #!/usr/bin/env bash
 # Claudex runner script for $REVIEW_ID, mode=$mode, round=$round_num
@@ -185,6 +226,10 @@ if ! command -v codex >/dev/null 2>&1; then
   exit 1
 fi
 
+# Pre-clean stale outputs so a previous round's leftovers cannot be read
+# as this round's completion signal.
+rm -f "$findings_path" "$sentinel_path" 2>/dev/null
+
 PROMPT_FILE="$STATE_DIR/$REVIEW_ID-prompt.txt"
 
 cat > "\$PROMPT_FILE" <<'PROMPTEOF'
@@ -194,6 +239,17 @@ PROMPTEOF
 echo "[claudex] Running Codex (mode=$mode, round=$round_num, persona: $persona_label)..."
 codex exec --dangerously-bypass-approvals-and-sandbox < "\$PROMPT_FILE"
 RC=\$?
+
+# Sentinel: emit ONLY when Codex exited zero AND findings file is non-empty.
+# This is the contract the Stop hook re-fire guard checks. No sentinel ->
+# round did not complete -> round counter does not advance.
+if [ "\$RC" -eq 0 ] && [ -s "$findings_path" ]; then
+  : > "$sentinel_path" || true
+  echo "[claudex] Round complete (sentinel written: $sentinel_path)"
+else
+  echo "[claudex] Round did NOT complete (no sentinel; RC=\$RC, findings file size=\$(wc -c < "$findings_path" 2>/dev/null || echo 0))"
+fi
+
 echo "[claudex] Codex exit code: \$RC"
 exit \$RC
 RUNNEREOF
@@ -271,30 +327,8 @@ Write that file before exiting. The next reviewer reads only that file, not your
 
       PERSONA_LABEL=$(claudex_persona_label_for_round "$ROUND")
 
-      MSG="### Claudex round $ROUND of $MAX_ROUNDS, $PERSONA_LABEL
-
-**Run the runner:**
-
-\`\`\`
-bash $RUNNER
-\`\`\`
-
-When Codex finishes, read the clean findings summary from:
-
-\`$FINDINGS_FILE\`
-
-(That file is a short bullet list. Skip the full transcript unless you need extra context.)
-
-**Then decide:**
-
-- **Material findings exist** → revise PLAN.md to address them. Append (or update) a '## Changelog' section at the bottom of PLAN.md noting what you took and what you rejected with reasoning. Then end your turn.
-- **No material findings (or only style nits)** → mark the loop done:
-  \`\`\`
-  bash \${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh $REVIEW_ID
-  \`\`\`
-  Then end your turn.
-
-**Hard stop:** if this is round $MAX_ROUNDS and Codex still has substantive findings, end your turn anyway. The hook will detect max-rounds-reached and exit cleanly with a summary of what's left."
+      MSG=$(build_review_round_block "$ROUND" "$MAX_ROUNDS" "$PERSONA_LABEL" \
+                                     "$RUNNER" "$FINDINGS_FILE" "" "$REVIEW_ID")
 
       block "$MSG"
       ;;
@@ -328,7 +362,38 @@ $ROUNDS_TABLE
         block "$SUMMARY"
       fi
 
-      # No done signal. Claude must have revised. Increment round.
+      # No done signal. Re-fire guard: if the current round's runner has not
+      # produced a completion sentinel, this Stop fire is from a meta-response
+      # (sibling Stop hook, infrastructure error reply, etc.) — NOT from a
+      # real round completion. Re-emit the same round-N block instead of
+      # advancing the counter.
+      CURRENT_FINDINGS_FILE_GUARD="$REVIEW_DIR/findings-round-$ROUND.md"
+      CURRENT_SENTINEL="${CURRENT_FINDINGS_FILE_GUARD}.ok"
+      if [ ! -e "$CURRENT_SENTINEL" ]; then
+        log "Re-fire detected: round $ROUND sentinel absent ($CURRENT_SENTINEL); not advancing counter"
+        PERSONA_LABEL_GUARD=$(claudex_persona_label_for_round "$ROUND")
+        # Build trajectory line from previous round if applicable.
+        TRAJECTORY_LINE_GUARD=""
+        if [ "$ROUND" -gt 1 ]; then
+          PREV_FF="$REVIEW_DIR/findings-round-$((ROUND - 1)).md"
+          if [ -f "$PREV_FF" ]; then
+            PREV_TALLY_GUARD=$(claudex_findings_severity_counts "$PREV_FF")
+            if [ -n "$PREV_TALLY_GUARD" ]; then
+              TRAJECTORY_LINE_GUARD="**Previous round:** $PREV_TALLY_GUARD
+
+"
+            fi
+          fi
+        fi
+        REFIRE_MSG=$(build_review_round_block "$ROUND" "$MAX_ROUNDS" "$PERSONA_LABEL_GUARD" \
+                                              "$RUNNER" "$CURRENT_FINDINGS_FILE_GUARD" \
+                                              "$TRAJECTORY_LINE_GUARD" "$REVIEW_ID")
+        block "$REFIRE_MSG"
+        # Defensive: block() exits, but make the exit explicit.
+        exit 0
+      fi
+
+      # Sentinel present -> round legitimately completed. Increment.
       NEW_ROUND=$((ROUND + 1))
       claudex_state_set_field "$ACTIVE_STATE" "round" "$NEW_ROUND"
 
@@ -442,26 +507,8 @@ Write that file before exiting."
 "
       fi
 
-      MSG="### Claudex round $ROUND of $MAX_ROUNDS, $PERSONA_LABEL
-
-${TRAJECTORY_LINE}**Run the runner:**
-
-\`\`\`
-bash $RUNNER
-\`\`\`
-
-Findings summary will be written to:
-
-\`$FINDINGS_FILE\`
-
-**Then decide:**
-
-- **Material findings** → revise PLAN.md (update the Changelog) and end your turn. Round will auto-increment.
-- **No material findings** → mark done:
-  \`\`\`
-  bash \${CLAUDE_PLUGIN_ROOT}/scripts/mark-done.sh $REVIEW_ID
-  \`\`\`
-  Then end your turn."
+      MSG=$(build_review_round_block "$ROUND" "$MAX_ROUNDS" "$PERSONA_LABEL" \
+                                     "$RUNNER" "$FINDINGS_FILE" "$TRAJECTORY_LINE" "$REVIEW_ID")
 
       block "$MSG"
       ;;
