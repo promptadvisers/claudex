@@ -62,11 +62,30 @@ else
 fi
 log "Hook fired. Input bytes: ${#HOOK_INPUT}"
 
-# Find active loop.
+# Extract session_id from hook input so we can scope active-loop lookup to the
+# current Claude Code session. Without this, sessions in the same project
+# pollute each other (session A's loop blocks session B's turns).
+CURRENT_SID=""
+CURRENT_SID=$(printf '%s' "$HOOK_INPUT" \
+  | python3 -c 'import json,sys
+try:
+    print(json.load(sys.stdin).get("session_id",""))
+except Exception:
+    pass' 2>/dev/null)
+if [ -z "$CURRENT_SID" ]; then
+  CURRENT_SID="${CLAUDE_SESSION_ID:-}"
+fi
+log "Current session_id: ${CURRENT_SID:-<none>}"
+
+# Find active loop scoped to THIS session. Fail-open if we can't determine the
+# session — better to let Claude exit than to trap it on stale state from
+# another session.
 ACTIVE_STATE=""
-ACTIVE_STATE=$(claudex_find_active_loop 2>/dev/null)
+if [ -n "$CURRENT_SID" ]; then
+  ACTIVE_STATE=$(claudex_find_active_loop_for_session "$CURRENT_SID" 2>/dev/null)
+fi
 if [ -z "$ACTIVE_STATE" ] || [ ! -f "$ACTIVE_STATE" ]; then
-  approve "no active loop"
+  approve "no active loop for this session (sid=${CURRENT_SID:-none})"
 fi
 
 REVIEW_ID=$(basename "$ACTIVE_STATE" .state)

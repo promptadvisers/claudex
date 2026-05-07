@@ -110,24 +110,28 @@ mkdir -p "$CLAUDEX_STATE_DIR" || exit 3
 # Sweep stale loops first (anything older than 15 min by default).
 claudex_sweep_stale
 
-# Refuse to start if another loop is genuinely active.
+# Refuse to start if another loop is genuinely active IN THIS SESSION.
 # State files are kept on disk for audit even after a loop completes or is
 # cancelled, so we check the phase to decide if a loop is still running.
 # Active phases: drafting, reviewing, revising. Terminal: done, cancelled, errored.
+# Loops from OTHER sessions are allowed to coexist (each session is scoped by
+# its session_id; the Stop hook only triggers on its own session's state file).
+CURRENT_SID="${CLAUDE_SESSION_ID:-unknown}"
 for state in "$CLAUDEX_STATE_DIR"/*.state; do
   [ -f "$state" ] || continue
   state_phase=$(claudex_state_read_field "$state" "phase")
   case "$state_phase" in
     done|cancelled|errored|"")
-      # Terminal phase or unparseable; not an active loop.
-      ;;
-    *)
-      active_id=$(basename "$state" .state)
-      echo "Another claudex loop is already active: $active_id (phase: $state_phase)" >&2
-      echo "Run /claudex:cancel to abort it, or /claudex:rollback to force-clean." >&2
-      exit 1
+      continue
       ;;
   esac
+  state_sid=$(claudex_state_read_field "$state" "session_id")
+  if [ "$state_sid" = "$CURRENT_SID" ]; then
+    active_id=$(basename "$state" .state)
+    echo "Another claudex loop is already active in this session: $active_id (phase: $state_phase)" >&2
+    echo "Run /claudex:cancel to abort it, or /claudex:rollback to force-clean." >&2
+    exit 1
+  fi
 done
 
 # Generate review_id.

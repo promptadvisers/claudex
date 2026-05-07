@@ -162,6 +162,27 @@ cd - >/dev/null
 rm -rf "$TMP"
 unset CLAUDEX_STATE_DIR
 
+section "11b. Session-scoped active loop finder"
+TMP=$(mktemp -d)
+cd "$TMP"
+export CLAUDEX_STATE_DIR=".claude/claudex"
+mkdir -p "$CLAUDEX_STATE_DIR"
+check "empty session arg returns non-zero" bash -c "! claudex_find_active_loop_for_session ''"
+check "no loops returns non-zero" bash -c "! claudex_find_active_loop_for_session SID_X"
+claudex_state_write "$CLAUDEX_STATE_DIR/loopA.state" "phase: drafting
+session_id: SID_A"
+sleep 1
+claudex_state_write "$CLAUDEX_STATE_DIR/loopB.state" "phase: drafting
+session_id: SID_B"
+matchA=$(claudex_find_active_loop_for_session "SID_A")
+check "scoped lookup finds SID_A loop" bash -c "echo '$matchA' | grep -q loopA"
+matchB=$(claudex_find_active_loop_for_session "SID_B")
+check "scoped lookup finds SID_B loop" bash -c "echo '$matchB' | grep -q loopB"
+check "scoped lookup with unknown sid returns non-zero" bash -c "! claudex_find_active_loop_for_session SID_Z"
+cd - >/dev/null
+rm -rf "$TMP"
+unset CLAUDEX_STATE_DIR
+
 section "12. Personas helper"
 check "personas.sh exists" test -f "$PLUGIN_ROOT/scripts/personas.sh"
 check "personas sources cleanly" bash -c "source '$PLUGIN_ROOT/scripts/personas.sh'"
