@@ -141,6 +141,27 @@ claudex_find_active_loop() {
   printf '%s' "$latest"
 }
 
+# claudex_find_active_loop_for_session <session_id>
+# Returns the most-recent state file whose `session_id` field matches the
+# argument. Empty argument or no match → returns 1 (no output).
+# This is the session-scoped variant used by the Stop hook so multiple Claude
+# sessions in the same project don't pollute each other.
+claudex_find_active_loop_for_session() {
+  local sid="$1"
+  [ -n "$sid" ] || return 1
+  [ -d "$CLAUDEX_STATE_DIR" ] || return 1
+  local f file_sid
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    file_sid=$(claudex_state_read_field "$f" "session_id")
+    if [ "$file_sid" = "$sid" ]; then
+      printf '%s' "$f"
+      return 0
+    fi
+  done < <(ls -t "$CLAUDEX_STATE_DIR"/*.state 2>/dev/null)
+  return 1
+}
+
 claudex_count_active_loops() {
   [ -d "$CLAUDEX_STATE_DIR" ] || { echo 0; return 0; }
   ls "$CLAUDEX_STATE_DIR"/*.state 2>/dev/null | wc -l | tr -d ' '
