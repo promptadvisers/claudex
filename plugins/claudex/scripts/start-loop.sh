@@ -185,6 +185,14 @@ decision_signal: none"
 claudex_state_write "$STATE_FILE" "$STATE_CONTENT" || exit 3
 claudex_lock_write "$LOCK_FILE" || exit 3
 
+# {{TOPIC}} is substituted into the prompt templates via sed below. The topic is
+# user-provided and may contain characters that are special in a sed replacement:
+# backslash, "&" (means "the whole matched text", i.e. "{{TOPIC}}"), and the "|"
+# delimiter. Escape all three so the literal topic is inserted verbatim, and
+# collapse newlines since sed operates line-by-line. (REVIEW_ID and MAX_ROUNDS are
+# a generated id and an integer, so they need no escaping.)
+SED_SAFE_TOPIC="$(printf '%s' "$TOPIC" | tr '\n\r' '  ' | sed -e 's/[\\&|]/\\&/g')"
+
 # Print initial instructions to stdout. Claude will read these.
 case "$MODE" in
   plan)
@@ -196,13 +204,13 @@ case "$MODE" in
       echo "Source: existing PLAN.md (--from-draft)"
       echo ""
       cat "$CLAUDE_PLUGIN_ROOT/scripts/prompts/plan-mode-from-draft.md" 2>/dev/null \
-        | sed -e "s|{{TOPIC}}|$TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g" -e "s|{{MAX_ROUNDS}}|$MAX_ROUNDS|g"
+        | sed -e "s|{{TOPIC}}|$SED_SAFE_TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g" -e "s|{{MAX_ROUNDS}}|$MAX_ROUNDS|g"
     else
       echo ""
       echo "Round 1 - drafting plan."
       echo ""
       cat "$CLAUDE_PLUGIN_ROOT/scripts/prompts/plan-mode-init.md" 2>/dev/null \
-        | sed -e "s|{{TOPIC}}|$TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g"
+        | sed -e "s|{{TOPIC}}|$SED_SAFE_TOPIC|g" -e "s|{{REVIEW_ID}}|$REVIEW_ID|g"
     fi
     ;;
   review)
